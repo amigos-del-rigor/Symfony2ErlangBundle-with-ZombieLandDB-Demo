@@ -1,0 +1,30 @@
+parameters:
+    database_driver:   pdo_mysql
+    database_host:     127.0.0.1
+    database_port:     ~
+    database_name:     symfony
+    database_user:     root
+    database_password: ~
+
+    mailer_transport:  smtp
+    mailer_host:       127.0.0.1
+    mailer_user:       ~
+    mailer_password:   ~
+
+    locale:            en
+    secret:            ThisTokenIsNotSoSecretChangeIt
+
+    adr_symfony2_erlang.channels:
+            peb_node0:
+                type:   peb
+                config:
+                    node: 'node0@localhost'
+                    cookie: 'abc'
+                    timeout: 200
+            rpc_amqp_node0:
+                type:  rpc_amqp
+                config:
+                    host: 'localhost'
+                    port: 5672
+                    user: 'guest'
+                    password: 'guest'
