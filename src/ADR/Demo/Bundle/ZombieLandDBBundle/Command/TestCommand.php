@@ -9,6 +9,14 @@ use Symfony\Component\Console\Input\InputOption;
 
 class TestCommand extends ContainerAwareCommand
 {
+    const get_pid_from_id   = "[~s]";
+    const set               = "[~P, ~s, ~s]";
+    const get               = "[~P, ~s]";
+    const setPidList        = "[~s, ~s, ~s]";
+    protected $totalProcesses;
+    protected $node;
+    protected $pids = array();
+
     protected function configure()
     {
         $this
@@ -22,34 +30,48 @@ EOT
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $totalProcesses = $input->getArgument('totalProcesses');
+        $this->totalProcesses = $input->getArgument('totalProcesses');
 
-        $node = $this->getContainer()->get('adr_symfony2erlang.channel.manager')->getChannel('peb_node0');
-        $pids = array();
+        $this->node = $this->getContainer()->get('adr_symfony2erlang.channel.manager')->getChannel('peb_node0');
 
+        $output->writeln($this->process('getPidFromId'));
+        $output->writeln($this->process('set'));
+        $output->writeln($this->process('get'));
+    }
+
+    protected function process($method)
+    {
         // Test 1: Create processes
         $ts0 = microtime(true);
-        for($i=1; $i <= $totalProcesses; $i++)
+        $initPartial = $ts0;
+        for($i=1; $i <= $this->totalProcesses; $i++)
         {
-            list($rOk, $pid) = $node->call('zldb_manager', 'get_pid_from_id', array('abc' . $i));
-            $pids[$i] = $pid;
+            $data = $this->$method($i);
+            if ($method === 'get' && !is_null($data)) {
+                if (!isset($data[1])) {
+                    throw new \Exception('no valid result found');
+                }
+            }
         }
-        $output->writeln('Elapsed time to create ' . ($i - 1) . ' processes: ' . (microtime(true) - $ts0));
 
-        // Test 2: Set data
-        $ts0 = microtime(true);
-        for($i=1; $i <= $totalProcesses; $i++)
-        {
-            $rOk = $node->call('zldb_entity', 'set', array($pids[$i], 'foo', 'data foo'));
-        }
-        $output->writeln('Elapsed time to set ' . ($i - 1) . ' data: ' . (microtime(true) - $ts0));
+        return 'Elapsed time to create ' . ($i - 1) . ' processes: ' . (microtime(true) - $ts0);
+    }
 
-        // Test 3: Get data
-        $ts0 = microtime(true);
-        for($i=1; $i <= $totalProcesses; $i++)
-        {
-            $data = $node->call('zldb_entity', 'get', array($pids[$i], 'foo'));
-        }
-        $output->writeln('Elapsed time to get ' . ($i - 1) . ' data: ' . (microtime(true) - $ts0));
+    protected function getPidFromId($i)
+    {
+        list($rOk, $pid) = $this->node->call('zldb_manager', 'get_pid_from_id', array(self::get_pid_from_id ,array('abc' . $i)));
+        $this->pids[$i] = $pid;
+    }
+
+    protected function set($i)
+    {
+        $rOk = $this->node->call('zldb_entity', 'set', array(self::set, array($this->pids[$i], 'foo', 'data foo-'.$i)));
+    }
+
+    protected function get($i)
+    {
+        $data = $this->node->call('zldb_entity', 'get', array(self::get, array($this->pids[$i], 'foo')));
+
+        return ($i % 25000 === 0) ? $data: null;
     }
 }
